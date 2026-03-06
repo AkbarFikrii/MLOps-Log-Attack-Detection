@@ -29,7 +29,7 @@ The current model is still under development.
 
 Current evaluation result:
 
-Accuracy: 0.61
+Accuracy: 0.94
 
 This indicates that the model can detect some patterns but still requires further improvements such as:
 
