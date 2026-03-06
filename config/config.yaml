@@ -1,0 +1,16 @@
+data:
+  raw_dir: data/raw
+  interim_dir: data/external
+  processed_dir: data/processed
+
+features:
+  suspicious_keywords:
+    - union
+    - select
+    - drop
+    - script
+    - "../"
+
+model:
+  test_size: 0.2
+  random_state: 42
