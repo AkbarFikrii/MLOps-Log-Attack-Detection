@@ -235,6 +235,16 @@ def train_and_log(
     simpan model .pkl ke models/ lalu DVC-track.
     """
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+
+    # Artifact root: simpan di dalam repo agar tidak butuh akses /mlflow di host.
+    # MLflow server di Docker menyimpan ke /mlflow/artifacts (di dalam container),
+    # tapi client dari host tidak punya akses ke path itu.
+    # Dengan set MLFLOW_ARTIFACT_ROOT ke path lokal, artifact ditulis di sini
+    # lalu di-log sebagai file artifact (bukan remote storage).
+    local_artifact_root = str(REPO_ROOT / "mlflow" / "artifacts")
+    os.makedirs(local_artifact_root, exist_ok=True)
+    os.environ["MLFLOW_ARTIFACT_ROOT"] = local_artifact_root
+
     mlflow.set_experiment(EXPERIMENT_NAME)
 
     X, y = load_dataset()
@@ -286,27 +296,26 @@ def train_and_log(
             mlflow.log_metric(k, v)
 
         # ── Log model ke MLflow ───────────────────────────────────────────────
-        mlflow.xgboost.log_model(
-            model,
-            artifact_path="model",
-            registered_model_name="log-attack-detector" if register else None,
-            input_example=X_test.head(1),
-        )
-
-        # ── Feature importance ────────────────────────────────────────────────
-        importance_df = pd.DataFrame({
-            "feature":    X.columns.tolist(),
-            "importance": model.feature_importances_,
-        }).sort_values("importance", ascending=False)
-        imp_path = "/tmp/feature_importance.csv"
-        importance_df.to_csv(imp_path, index=False)
-        mlflow.log_artifact(imp_path, artifact_path="reports")
-
-        # ── Simpan model lokal → models/<run_id[:8]>.pkl ──────────────────────
+        # Simpan dulu ke disk, lalu log sebagai artifact — hindari
+        # PermissionError saat server mencoba tulis ke /mlflow di host.
         local_model_path = MODELS_DIR / f"model_{run_id[:8]}.pkl"
         joblib.dump(model, local_model_path)
-        mlflow.log_artifact(str(local_model_path), artifact_path="pkl")
         logger.info(f"Model saved locally: {local_model_path}")
+
+        try:
+            mlflow.xgboost.log_model(
+                model,
+                name="model",                     # 'name' menggantikan 'artifact_path' yang deprecated
+                registered_model_name="log-attack-detector" if register else None,
+                input_example=X_test.head(1),
+            )
+        except Exception as e:
+            logger.warning(
+                f"mlflow.xgboost.log_model gagal ({e}). "
+                "Model tetap tersimpan lokal, artifact di-log via log_artifact."
+            )
+            # Fallback: log file pkl sebagai artifact biasa
+            mlflow.log_artifact(str(local_model_path), artifact_path="model")
 
         # ── DVC track models/ ─────────────────────────────────────────────────
         _dvc_add_and_commit(
