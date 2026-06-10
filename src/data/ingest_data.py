@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 DB_HOST     = os.getenv("DB_HOST",     "localhost")
-DB_PORT     = os.getenv("DB_PORT",     "5432")
+DB_PORT     = os.getenv("DB_PORT",     "6666")
 DB_NAME     = os.getenv("DB_NAME",     "attack_detection")
 DB_USER     = os.getenv("DB_USER",     "postgres")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "g1ojsjaya")
